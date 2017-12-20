@@ -26,7 +26,7 @@ DB_connect = function(){
                          user = credentials[[1]],
                          password = credentials[[2]],
                          host = credentials[[3]],
-                         port = credentials[[4]],
+                         port = as.integer(credentials[[4]]),
                          dbname = "world_floras")
   DBI::dbSendQuery(conn, "SET NAMES utf8")
   return(conn)
