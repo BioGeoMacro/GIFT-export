@@ -286,7 +286,7 @@ assign_higher_taxa <- function(work_IDs, taxon_lvl=NA, higher_lvl=FALSE, return_
 # universal function for plotting geoentities based on 
 # richness or environmental data
 
-plot_geoentities = function(geoentities, display = c("none","richness","trait_coverage","env_raster","env_misc"),tax_group = "Tracheophyta",
+plot_geoentities = function(geoentities, entity_properties = NULL, display = c("none","richness","trait_coverage","env_raster","env_misc","own_values"),tax_group = "Tracheophyta",
                             floristic_subset = c("native_proc","native_rst","native_raw","total_raw","total_proc","total_rst","naturalized_raw",
                                                  "naturalized_proc","naturalized_rst","endemic_raw_min","endemic_raw_max","endemic_proc_min",
                                                  "endemic_proc_max","endemic_rst_min","endemic_rst_max"),
@@ -297,28 +297,29 @@ plot_geoentities = function(geoentities, display = c("none","richness","trait_co
   
   conn = DB_connect()
   
-  if (display[1] %in% c("none","richness")){
-    entity_properties = dbGetQuery(conn, paste("SELECT `geoentities_specs`.`entity_ID`, ",floristic_subset[1]," AS value FROM `geoentities_specs` 
-                                               LEFT JOIN `taxonomy` ON `geoentities_specs`.`taxon_ID` = `taxonomy`.`taxon_ID`
-                                               WHERE `",floristic_subset[1],"` IS NOT NULL AND `taxon_name` = '",tax_group,"'",sep=""))
-  } else if (display[1] == "trait_coverage"){
-    entity_properties = dbGetQuery(conn, paste("SELECT `geoentities_trait_coverage`.`entity_ID`, ",floristic_subset[1]," AS value FROM `geoentities_trait_coverage` 
-                                               LEFT JOIN `taxonomy` ON `geoentities_trait_coverage`.`taxon_ID` = `taxonomy`.`taxon_ID`
-                                               WHERE `",floristic_subset[1],"` IS NOT NULL AND `taxon_name` = '",tax_group,"' AND `trait_ID` = '",trait_ID,"'",sep=""))
-  } else if (display[1] == "env_raster"){
-    entity_properties = dbGetQuery(conn, paste("SELECT `geoentities_env_raster`.`entity_ID`, ",rst_summary[1]," AS value FROM `geoentities_env_raster` 
-                                               WHERE `",rst_summary[1],"` IS NOT NULL AND `layer_name` = '",raster_layer,"'",sep=""))
-  } else if (display[1] == "env_misc"){
-    entity_properties = dbGetQuery(conn, paste("SELECT `geoentities_env_misc`.`entity_ID`, ",misc_variable," AS value FROM `geoentities_env_misc` 
-                                               WHERE `",misc_variable[1],"` IS NOT NULL",sep=""))
-  }
-  
+  if (is.null(entity_properties)){
+    if (display[1] %in% c("none","richness")){
+      entity_properties = dbGetQuery(conn, paste("SELECT `geoentities_specs`.`entity_ID`, ",floristic_subset[1]," AS value FROM `geoentities_specs` 
+                                                 LEFT JOIN `taxonomy` ON `geoentities_specs`.`taxon_ID` = `taxonomy`.`taxon_ID`
+                                                 WHERE `",floristic_subset[1],"` IS NOT NULL AND `taxon_name` = '",tax_group,"'",sep=""))
+    } else if (display[1] == "trait_coverage"){
+      entity_properties = dbGetQuery(conn, paste("SELECT `geoentities_trait_coverage`.`entity_ID`, ",floristic_subset[1]," AS value FROM `geoentities_trait_coverage` 
+                                                 LEFT JOIN `taxonomy` ON `geoentities_trait_coverage`.`taxon_ID` = `taxonomy`.`taxon_ID`
+                                                 WHERE `",floristic_subset[1],"` IS NOT NULL AND `taxon_name` = '",tax_group,"' AND `trait_ID` = '",trait_ID,"'",sep=""))
+    } else if (display[1] == "env_raster"){
+      entity_properties = dbGetQuery(conn, paste("SELECT `geoentities_env_raster`.`entity_ID`, ",rst_summary[1]," AS value FROM `geoentities_env_raster` 
+                                                 WHERE `",rst_summary[1],"` IS NOT NULL AND `layer_name` = '",raster_layer,"'",sep=""))
+    } else if (display[1] == "env_misc"){
+      entity_properties = dbGetQuery(conn, paste("SELECT `geoentities_env_misc`.`entity_ID`, ",misc_variable," AS value FROM `geoentities_env_misc` 
+                                                 WHERE `",misc_variable[1],"` IS NOT NULL",sep=""))
+    }
+    }
   dbDisconnect(conn)  
   
   # subset geoentities shapefile  
   geoentities <- geoentities[which(geoentities@data$entity_ID %in% unique(entity_properties$entity_ID)),] # polygons to plot
   geoentities@data <- join(geoentities@data,entity_properties, by="entity_ID", type="inner")
-
+  
   if(suit_geo){ geoentities <- geoentities[which(geoentities$suit_geo == 1),]}
   
   # remove overlapping entities
@@ -339,31 +340,31 @@ plot_geoentities = function(geoentities, display = c("none","richness","trait_co
   geoentities@data$color = rgb(colors[,1], colors[,2], colors[,3], maxColorValue = 255)
   
   # create Spatial points data.frame for entities smaller than threshold area
-  geoentities_points <- SpatialPointsDataFrame(geoentities@data[which(geoentities@data$area < threshold_area),c("point_x","point_y")],
-                                               geoentities@data[which(geoentities@data$area < threshold_area),], proj4string = CRS("+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0"))
-  
-  if (orderbyvalue_points){
-    geoentities_points = geoentities_points[order(geoentities_points@data$value),]
-  }
-  
+  if (threshold_area > min(geoentities@data$area,na.rm = TRUE)){
+    geoentities_points <- SpatialPointsDataFrame(geoentities@data[which(geoentities@data$area < threshold_area),c("point_x","point_y")],
+                                                 geoentities@data[which(geoentities@data$area < threshold_area),], proj4string = CRS("+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0"))
+    if (orderbyvalue_points){
+      geoentities_points = geoentities_points[order(geoentities_points@data$value),]
+    }
+    if (as.character(geoentities_points@proj4string) != proj4string){
+      geoentities_points = spTransform(geoentities_points, CRS(proj4string))
+    }
+  }  
   if(length(ls(envir = globalenv(), pattern = "continents")) == 0){
     load(paste(wd_path,"Geodata/Continents.RData",sep=""))
   }
   if(length(ls(envir = globalenv(), pattern = "worldmapframe")) == 0){
     load(paste(wd_path,"Geodata/Worldmapframe.RData",sep=""))
   }
-
+  
   if (as.character(geoentities@proj4string) != proj4string){
     geoentities = spTransform(geoentities, CRS(proj4string))
-  }
-  if (as.character(geoentities_points@proj4string) != proj4string){
-      geoentities_points = spTransform(geoentities_points, CRS(proj4string))
   }
   if (as.character(continents@proj4string) != proj4string){
     continents = spTransform(continents, CRS(proj4string))
     worldmapframe = spTransform(worldmapframe, CRS(proj4string))
   }
-
+  
   ### default plotting arguments
   # layout
   if(is.null(args_layout$heights)){args_layout$heights = c(8.6,1.4)}
@@ -375,12 +376,13 @@ plot_geoentities = function(geoentities, display = c("none","richness","trait_co
                                                               richness = paste(tax_group, floristic_subset[1]),
                                                               trait_coverage = paste(tax_group, floristic_subset[1], trait_ID),
                                                               env_raster = paste(rst_summary[1], raster_layer),
-                                                              env_misc = misc_variable))}
+                                                              env_misc = misc_variable,
+                                                              own_values = ""))}
   if(is.null(args_title$line)){args_title$line = 0}
   # poly
   if(is.null(args_poly$col)){args_poly$col = rgb(1,0,0, alpha = 0.3)} 
   if(display[1]!="none"){args_poly$col = geoentities@data$color} 
-
+  
   if(is.null(args_poly$border)){
     if(display[1]=="none"){
       args_poly$border = "tomato"
@@ -392,7 +394,7 @@ plot_geoentities = function(geoentities, display = c("none","richness","trait_co
   # points_0
   if(is.null(args_points_0$cex)){args_points_0$cex = 1}
   if(is.null(args_points_0$pch)){args_points_0$pch = 1}
-
+  
   # points
   if(is.null(args_points$col)){args_points$col = rgb(1,0,0, alpha = 0.3)}
   if(display[1]!="none"){args_points$col = geoentities_points@data$color} 
@@ -405,7 +407,7 @@ plot_geoentities = function(geoentities, display = c("none","richness","trait_co
   
   # legend
   if(is.null(args_legend$xlab)){
-    args_legend$xlab = switch(display[1], none = NA, richness = "Species number", trait_coverage = "Trait coverage", env_raster = raster_layer, env_misc = misc_variable)
+    args_legend$xlab = switch(display[1], none = NA, richness = "Species number", trait_coverage = "Trait coverage", env_raster = raster_layer, env_misc = misc_variable, own_values = "Own variable")
   }
   
   if (display[1]!="none" & make_layout==TRUE){
@@ -421,13 +423,14 @@ plot_geoentities = function(geoentities, display = c("none","richness","trait_co
   plot(worldmapframe,border="#CCCCCC",add=T)
   
   do.call(plot, unlist(list(list(geoentities, add = T), args_poly), recursive = FALSE))
-  if(!is.null(args_points_0$col)){do.call(plot, unlist(list(list(geoentities_points, add = T), args_points_0), recursive = FALSE))}
-  do.call(plot, unlist(list(list(geoentities_points, add = T), args_points), recursive = FALSE))
-  
+  if (threshold_area > min(geoentities@data$area,na.rm = TRUE)){
+    if(!is.null(args_points_0$col)){do.call(plot, unlist(list(list(geoentities_points, add = T), args_points_0), recursive = FALSE))}
+    do.call(plot, unlist(list(list(geoentities_points, add = T), args_points), recursive = FALSE))
+  }
   if (display[1]!="none"){
     legend_cols = colorRamp(color_gradient)(seq(0,1,length.out = 25))
     legend_image <- as.raster(matrix(rgb(legend_cols[,1],legend_cols[,2],legend_cols[,3], maxColorValue = 255), nrow = 1))
-
+    
     do.call(par, unlist(list(list(xaxs="i"),args_legend_par), recursive = FALSE))
     do.call(plot, unlist(list(list(c(0,1),c(0,1),type = 'n', axes = F, ylab=''), args_legend), recursive = FALSE))
     box()
@@ -454,7 +457,7 @@ plot_geoentities = function(geoentities, display = c("none","richness","trait_co
       axis(1, at=at_loc, labels = at_values)
     }
   }
-}
+  }
 
 
 
