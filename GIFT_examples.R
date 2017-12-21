@@ -101,7 +101,7 @@ geoentities_env_raster <- DB_get_env_raster(entity_IDs = NULL, layers = c("CHELS
 ### Spatial hierarchy
 
 # Remove overlapping entities if you want
-tokeep <- remove_overlapping_entities(unique(checklists$netity_ID), area_th_island = 0, area_th_mainland = 100, overlap_th = 0.1)
+tokeep <- remove_overlapping_entities(unique(checklists$entity_ID), area_th_island = 0, area_th_mainland = 100, overlap_th = 0.1)
 
 
 ### Plotting
@@ -148,10 +148,10 @@ plot_geoentities(geoentities_simple, display = "trait_coverage",tax_group = "Tra
                  args_points = list(cex=1), args_points_0 = list(cex=0.8, col = "grey"),
                  args_legend_par = list(mar = c(4.5,10,0,10), mgp = c(2.5, 0.5, 0)), args_legend = list())
 
-### Plot environment
+### Plot environmental variables
 plot_geoentities(geoentities_simple, display = "env_misc", misc_variable = "SLMP", 
                  logvar=TRUE, suit_geo = FALSE, remove_overlapping = FALSE, threshold_area = 25000, proj4string = as.character(geoentities_simple@proj4string),
-                 color_gradient = c("blue", "yellow","red"), make_layout = FALSE, orderbyvalue_points = TRUE,
+                 color_gradient = c("blue", "yellow","red"), make_layout = TRUE, orderbyvalue_points = TRUE,
                  args_par = list(mar=c(0,0,2,0)), args_title = list(line=0, main="Surrounding landmass"), args_poly = list(border = "grey", lwd=0.3),
                  args_points = list(cex=1), args_points_0 = list(cex=0.8, col = "grey"),
                  args_legend_par = list(mar = c(4.5,10,0,10), mgp = c(2.5, 0.5, 0)), args_legend = list(xlab="Surrounding landmass proportion"))
@@ -159,7 +159,7 @@ plot_geoentities(geoentities_simple, display = "env_misc", misc_variable = "SLMP
 
 plot_geoentities(geoentities_simple, display = "env_raster", raster_layer = "mn30_grd", rst_summary = "mean",
                  logvar=FALSE, suit_geo = FALSE, remove_overlapping = FALSE, threshold_area = 25000, proj4string = as.character(geoentities_simple@proj4string),
-                 color_gradient = c("blue", "yellow","red"), make_layout = FALSE, orderbyvalue_points = TRUE,
+                 color_gradient = c("blue", "yellow","red"), make_layout = TRUE, orderbyvalue_points = TRUE,
                  args_par = list(mar=c(0,0,2,0)), args_title = list(line=0, main="Elevation"), args_poly = list(border = "grey", lwd=0.3),
                  args_points = list(cex=1), args_points_0 = list(cex=0.8, col = "grey"),
                  args_legend_par = list(mar = c(4.5,10,0,10), mgp = c(2.5, 0.5, 0)), args_legend = list(xlab="Elevation a.s.l. (m)"))
