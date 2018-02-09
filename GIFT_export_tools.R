@@ -186,16 +186,17 @@ DB_get_checklists_conditional = function(entity_class = c("Island","Island/Mainl
 ####################################################
 # function to remove overlapping entities
 
-remove_overlapping_entities <- function(entity_IDs, area_th_island = 0, area_th_mainland = 100, overlap_th = 0.1){
+remove_overlapping_entities <- function(entity_IDs, area_th_island = 0, area_th_mainland = 100, overlap_th = 0.1, geoentities_overlap = NULL){
   
-  conn = DB_connect()
-  geoentities_overlap <- dbGetQuery(conn, "SELECT geoentities_overlap.entity1, geoentities_overlap.entity2, geoentities_overlap.overlap12, geoentities_overlap.overlap21, 
+  if(is.null(geoentities_overlap)){
+    conn = DB_connect()
+    geoentities_overlap <- dbGetQuery(conn, "SELECT geoentities_overlap.entity1, geoentities_overlap.entity2, geoentities_overlap.overlap12, geoentities_overlap.overlap21, 
                                     geoentities_env_misc.area AS area1, geoentities_env_misc_1.area AS area2, geoentities.entity_class AS entity_class2
                                     FROM geoentities INNER JOIN (geoentities_env_misc INNER JOIN (geoentities_env_misc AS geoentities_env_misc_1 INNER JOIN geoentities_overlap 
                                     ON geoentities_env_misc_1.entity_ID = geoentities_overlap.entity2) ON geoentities_env_misc.entity_ID = geoentities_overlap.entity1) 
                                     ON geoentities.entity_ID = geoentities_overlap.entity2")
-  dbDisconnect(conn)
-  
+    dbDisconnect(conn)
+  }
   geoentities_overlap <- geoentities_overlap[which(geoentities_overlap$entity1 %in% entity_IDs & geoentities_overlap$entity2 %in% entity_IDs),]
   geoentities_overlap <- geoentities_overlap[which(geoentities_overlap$overlap12 > overlap_th | geoentities_overlap$overlap21 > overlap_th),]
   
@@ -457,7 +458,136 @@ plot_geoentities = function(geoentities, entity_properties = NULL, display = c("
       axis(1, at=at_loc, labels = at_values)
     }
   }
+}
+
+################################################################
+# Obtain summary statistics about species ranges
+range_finder <- function(work_IDs, tax_group = 1, native = TRUE, exclude_restricted = FALSE){
+  
+  # get all species records from GIFT
+  species <- DB_get_checklists_conditional(entity_class = c("Island","Island/Mainland","Mainland","Island Group","Island Part"), 
+                                           native_indicated = native, natural_indicated = FALSE, end_ref = FALSE, end_list = FALSE, 
+                                           type_ref = 1:11, ref_included = c(1:9), tax_group = tax_group, suit_geo = FALSE, 
+                                           exclude_restricted = exclude_restricted, include_names_unique = TRUE, return_query_only = FALSE, complete_taxonomy = FALSE)
+  
+  if (native) {
+    # make subset of native species
+    species <- species[which(species$native==1),]
   }
+  
+  # create empty data.frame for results
+  ranges <- data.frame(work_ID = work_IDs, mainland = NA, island_mainland_min = NA, island_mainland_max = NA, island = NA, oceanic_island = NA, range_size_min = NA, range_size_max = NA, max_dist = NA, continents = NA, takhtajan = NA, global = NA)
+  
+  # subset all species by requested work_IDs
+  species <- species[which(species$work_ID %in% work_IDs),]
+  
+  # load geoentities and geoentities_overlap
+  conn = DB_connect()
+  geoentities_overlap <- dbGetQuery(conn, "SELECT geoentities_overlap.entity1, geoentities_overlap.entity2, geoentities_overlap.overlap12, geoentities_overlap.overlap21, 
+                                    geoentities_env_misc.area AS area1, geoentities_env_misc_1.area AS area2, geoentities.entity_class AS entity_class2
+                                    FROM geoentities INNER JOIN (geoentities_env_misc INNER JOIN (geoentities_env_misc AS geoentities_env_misc_1 INNER JOIN geoentities_overlap 
+                                    ON geoentities_env_misc_1.entity_ID = geoentities_overlap.entity2) ON geoentities_env_misc.entity_ID = geoentities_overlap.entity1) 
+                                    ON geoentities.entity_ID = geoentities_overlap.entity2")
+  
+  geoentities <- dbGetQuery(conn, "SELECT geoentities.entity_ID, geoentities.geo_entity, geoentities.entity_class, geoentities.overlap_checked, geoentities_polygons.polygon_source, 
+                            geoentities_env_misc.area, geoentities_env_misc.dist, geoentities_env_misc.GMMC, geoentities_env_misc.botanical_continent, geoentities_env_misc.biome, geoentities_env_misc.takhtajan
+                            FROM (geoentities LEFT JOIN geoentities_polygons ON geoentities.entity_ID = geoentities_polygons.entity_ID) 
+                            LEFT JOIN geoentities_env_misc ON geoentities.entity_ID = geoentities_env_misc.entity_ID")
+  dbDisconnect(conn) 
+  geoentities$polygon_source[which(geoentities$polygon_source == "none")] <- NA
+  geoentities$polygon_source[!is.na(geoentities$polygon_source)] <- 1
+  geoentities$polygon_source[is.na(geoentities$polygon_source)] <- 0
+  geoentities$polygon_source <- as.numeric(geoentities$polygon_source)
+  
+  geoentities <- unique(geoentities)
+  
+  # join species and geoentities
+  species <- join(species, geoentities, by="entity_ID", type="left")
+  
+  if (0 %in% unique(species$polygon_source)) warning("Not all regions have polygons assigned!!!")
+  species <- species[which(species$polygon_source == 1),]
+  
+  if (0 %in% unique(species$overlap_checked)) warning("Spatial overlap has not yet been checked for all regions!!! Run DB_update_geoentities_overlap() first!")
+  
+  if(!all(!is.na(species$area))) warning("NA-values in entity area!!!")
+  
+  print(0)
+  for (i in 1:nrow(ranges)){
+    if((i %% 100) == 0) print(i)
+    
+    species_i <- species[which(species$work_ID == ranges$work_ID[i]),]
+    
+    if(nrow(species_i) > 0){
+      
+      # remove overlapping entities within refs for each species seperately
+      # sometimes we have a species occurrences e.g. in a country but not in the subregions
+      # this is usually the reason why we include the larger units per ref
+      species_i <- ldply(lapply(unique(species_i$ref_ID), function(x) {
+        species_i[which(species_i$ref_ID == x & species_i$entity_ID %in% remove_overlapping_entities(unique(species_i$entity_ID[which(species_i$ref_ID==x)]), area_th_island = 0, area_th_mainland = 0, overlap_th = 0.1, geoentities_overlap = geoentities_overlap)),]
+      }))
+      
+      # remove overlapping entities; keep the smaller?
+      tokeep_min <- remove_overlapping_entities(unique(species_i$entity_ID), area_th_island = 0, area_th_mainland = 0, overlap_th = 0.1, geoentities_overlap = geoentities_overlap)
+      
+      # remove overlapping entities; keep the larger?
+      tokeep_max <- remove_overlapping_entities(unique(species_i$entity_ID), area_th_island = 100000000, area_th_mainland = 100000000, overlap_th = 0.1, geoentities_overlap = geoentities_overlap)
+      
+      area <- unique(species_i[,c("entity_ID","area")])
+      
+      ranges$range_size_min[i] <- sum(area$area[which(area$entity_ID %in% tokeep_min)], na.rm = TRUE)
+      ranges$range_size_max[i] <- sum(area$area[which(area$entity_ID %in% tokeep_max)], na.rm = TRUE)
+      
+      ranges$max_dist[i] <- max(species_i$dist, na.rm = TRUE)
+      ranges$oceanic_island[i] <- as.numeric(min(species_i$GMMC, na.rm = TRUE)==0)
+      
+      ranges$mainland[i] <- as.numeric(nrow(species_i[which(species_i$entity_class == "Mainland"),])>0)
+      ranges$island[i] <- as.numeric(nrow(species_i[which(species_i$entity_class %in% c("Island","Island Group","Island Part")),])>0)
+      
+      ranges$island_mainland_min[i] <- as.numeric(nrow(species_i[which(species_i$entity_class  == "Island/Mainland" & species_i$entity_ID %in% tokeep_min),])>0)
+      ranges$island_mainland_max[i] <- as.numeric(nrow(species_i[which(species_i$entity_class  == "Island/Mainland" & species_i$entity_ID %in% tokeep_max),])>0)
+      
+      ranges$global[i] <- as.numeric(nrow(species_i[which(species_i$ref_ID %in% c(10321,10193,10251,10253)),])>0 | length(which(species_i$endemic_list==1 | species_i$endemic_ref==1 & is.na(species_i$subtaxon)))>0)
+      
+      if (native) {
+        if(length(which(species_i$endemic_list==1 & is.na(species_i$subtaxon) & species_i$entity_class %in% c("Island","Island Group","Island Part")))>0) {
+          ranges$island_mainland_min[i] <- 0
+          ranges$island_mainland_max[i] <- 0
+          ranges$mainland[i] <- 0
+        } else {
+          subset.i.ref <- species_i[which(species_i$endemic_ref==1 & is.na(species_i$subtaxon)),]
+          if(nrow(subset.i.ref)>0 & all(subset.i.ref$entity_class %in% c("Island","Island Group","Island Part"))){
+            ranges$island_mainland_min[i] <- 0
+            ranges$island_mainland_max[i] <- 0
+            ranges$mainland[i] <- 0
+          }
+        }
+        
+        if(length(which(species_i$endemic_list==1 & is.na(species_i$subtaxon) & species_i$entity_class=="Mainland"))>0) {
+          ranges$island_mainland_min[i] <- 0
+          ranges$island_mainland_max[i] <- 0
+          ranges$island[i] <- 0
+        } else {
+          subset.i.ref <- species_i[which(species_i$endemic_ref==1 & is.na(species_i$subtaxon)),]
+          if(nrow(subset.i.ref)>0 & all(subset.i.ref$entity_class=="Mainland")){
+            ranges$island_mainland_min[i] <- 0
+            ranges$island_mainland_max[i] <- 0
+            ranges$island[i] <- 0
+          }
+        }
+      }
+    }
+    
+    takhtajan <- unique(species_i$takhtajan)
+    takhtajan <- takhtajan[order(takhtajan)]
+    ranges$takhtajan[i] <- paste(takhtajan, collapse="; ")
+    
+    continents <- unique(species_i$botanical_continent)
+    continents <- continents[order(continents)]
+    ranges$continents[i] <- paste(continents, collapse="; ")
+    
+  }
+  return(ranges)
+}
 
 
 
