@@ -462,7 +462,7 @@ plot_geoentities = function(geoentities, entity_properties = NULL, display = c("
 
 ################################################################
 # Obtain summary statistics about species ranges
-range_finder <- function(work_IDs, tax_group = 1, native = TRUE, exclude_restricted = FALSE){
+range_finder <- function(work_IDs, tax_group = 1, native = TRUE, exclude_restricted = FALSE, consider_endemism = TRUE){
   
   # get all species records from GIFT
   species <- DB_get_checklists_conditional(entity_class = c("Island","Island/Mainland","Mainland","Island Group","Island Part"), 
@@ -548,13 +548,13 @@ range_finder <- function(work_IDs, tax_group = 1, native = TRUE, exclude_restric
       
       ranges$global[i] <- as.numeric(nrow(species_i[which(species_i$ref_ID %in% c(10321,10193,10251,10253)),])>0 | length(which(species_i$endemic_list==1 | species_i$endemic_ref==1 & is.na(species_i$subtaxon)))>0)
       
-      if (native) {
-        if(length(which(species_i$endemic_list==1 & is.na(species_i$subtaxon) & species_i$entity_class %in% c("Island","Island Group","Island Part")))>0) {
+      if (native & consider_endemism) {
+        if(length(which(species_i$endemic_list==1 & is.na(species_i$subtaxon) & paste(species_i$genus, species_i$species_epithet) == species_i$species & species_i$entity_class %in% c("Island","Island Group","Island Part")))>0) {
           ranges$island_mainland_min[i] <- 0
           ranges$island_mainland_max[i] <- 0
           ranges$mainland[i] <- 0
         } else {
-          subset.i.ref <- species_i[which(species_i$endemic_ref==1 & is.na(species_i$subtaxon)),]
+          subset.i.ref <- species_i[which(species_i$endemic_ref==1 & is.na(species_i$subtaxon) & paste(species_i$genus, species_i$species_epithet) == species_i$species ),]
           if(nrow(subset.i.ref)>0 & all(subset.i.ref$entity_class %in% c("Island","Island Group","Island Part"))){
             ranges$island_mainland_min[i] <- 0
             ranges$island_mainland_max[i] <- 0
@@ -562,12 +562,12 @@ range_finder <- function(work_IDs, tax_group = 1, native = TRUE, exclude_restric
           }
         }
         
-        if(length(which(species_i$endemic_list==1 & is.na(species_i$subtaxon) & species_i$entity_class=="Mainland"))>0) {
+        if(length(which(species_i$endemic_list==1 & is.na(species_i$subtaxon) & paste(species_i$genus, species_i$species_epithet) == species_i$species & species_i$entity_class=="Mainland"))>0) {
           ranges$island_mainland_min[i] <- 0
           ranges$island_mainland_max[i] <- 0
           ranges$island[i] <- 0
         } else {
-          subset.i.ref <- species_i[which(species_i$endemic_ref==1 & is.na(species_i$subtaxon)),]
+          subset.i.ref <- species_i[which(species_i$endemic_ref==1 & is.na(species_i$subtaxon) & paste(species_i$genus, species_i$species_epithet) == species_i$species ),]
           if(nrow(subset.i.ref)>0 & all(subset.i.ref$entity_class=="Mainland")){
             ranges$island_mainland_min[i] <- 0
             ranges$island_mainland_max[i] <- 0

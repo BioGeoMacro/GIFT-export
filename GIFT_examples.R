@@ -165,8 +165,5 @@ plot_geoentities(geoentities_simple, display = "env_raster", raster_layer = "mn3
                  args_legend_par = list(mar = c(4.5,10,0,10), mgp = c(2.5, 0.5, 0)), args_legend = list(xlab="Elevation a.s.l. (m)"))
 
 
-species_ranges <- range_finder(work_IDs = c(1,2))
-
-
-
+species_ranges <- range_finder(work_IDs = c(1,2,3,118,188))
 
