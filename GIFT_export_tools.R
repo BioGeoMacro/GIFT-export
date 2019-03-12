@@ -224,18 +224,19 @@ remove_overlapping_entities <- function(entity_IDs, area_th_island = 0, area_th_
 
 ####################################################
 
-DB_get_traits = function(trait_IDs = c("")){
+DB_get_traits = function(trait_IDs = c(""), agreement = 0.66, bias_ref = 0, bias_deriv = 0, restricted = 0){
   # trait_IDs can either be "all" or a vector of trait_IDs
-  if(all(trait_IDs == "")){stop("No trait_IDs provided. Use 'all' to retrieve all traits.")}
   conn = DB_connect()
-  trait_list = suppressWarnings(DBI::dbGetQuery(conn, "SELECT * FROM `traits_final`"))
-  DBI::dbDisconnect(conn)
-  trait_list = dcast(data = trait_list, formula = work_ID ~ trait_ID, value.var = "trait_value")
-  if(trait_IDs == "all"){
-    return(trait_list)
-  } else {
-    return(trait_list[,c("work_ID", trait_IDs)])
-  }
+  on.exit(dbDisconnect(conn))
+  trait_list = dbGetQuery(conn, paste("SELECT work_ID, trait_ID, trait_value FROM traits_final WHERE ", 
+                                      ifelse(trait_IDs=="all","",paste("trait_ID IN (", toString(sprintf("'%s'", trait_IDs)), ") AND ", sep="")),
+                                      "(agreement >= ", paste(agreement), " OR agreement IS NULL)" ,
+                                      " AND bias_by_reference <= ", paste(bias_ref),
+                                      " AND bias_by_derivation <= ", paste(bias_deriv),
+                                      " AND restricted = ", paste(restricted), sep = ""))
+  
+  trait_list = reshape2::dcast(data = trait_list, formula = work_ID ~ trait_ID, value.var = "trait_value")
+  return(trait_list)
 }
 
 ####################################################

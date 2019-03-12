@@ -95,7 +95,7 @@ trees <- dbGetQuery(conn, "SELECT names_work_unique.species, traits_final.trait_
 geoentities_env_misc <- dbGetQuery(conn, "SELECT entity_ID, area, dist, biome FROM geoentities_env_misc")
 
 # Raster layers
-geoentities_env_raster <- DB_get_env_raster(entity_IDs = NULL, layers = c("CHELSA_bio10_1", "CHELSA_bio10_12", "Crowther_Nature_Biome_Revision_01_WGS84_GeoTiff"), metrics = c("mean","med","n"))
+geoentities_env_raster <- DB_get_env_raster(entity_IDs = NULL, layers = c("CHELSA_bio10_1", "CHELSA_bio10_12", "Crowther_Nature_Biome_Revision_01"), metrics = c("mean","med","n"))
 
 
 ### Spatial hierarchy
