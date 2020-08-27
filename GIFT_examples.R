@@ -84,9 +84,9 @@ traits <- join(traits,working_names, by="work_ID", type="left")
 
 
 # Get all trees
-trees <- dbGetQuery(conn, "SELECT names_work_unique.species, traits_final.trait_value, traits_final.sources, traits_final.confidence
+trees <- dbGetQuery(conn, "SELECT names_work_unique.species, traits_final.trait_value, traits_final.`references`, traits_final.agreement
                     FROM traits_final INNER JOIN names_work_unique ON traits_final.work_ID = names_work_unique.work_ID
-                    WHERE (((traits_final.trait_ID)='1.2.1') AND ((traits_final.trait_value)='tree' Or (traits_final.trait_value)='shrub/tree' Or (traits_final.trait_value)='herb/tree'))")
+                    WHERE (traits_final.trait_ID='1.2.1' AND traits_final.restricted=0 AND ((traits_final.trait_value)='tree' Or (traits_final.trait_value)='shrub/tree' Or (traits_final.trait_value)='herb/tree'))")
 
 
 ### Download environmental information
