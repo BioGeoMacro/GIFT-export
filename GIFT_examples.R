@@ -8,7 +8,7 @@ source("GIFT_export_tools.R")
 ### Path to data on our network drive
 wd_path <- ifelse(.Platform$OS.type == "windows", "M:/joint_projects/Checklist DB/","/media/Macroecology/joint_projects/Checklist DB/")
 
-### Define user credentials and connection details. !!! Run this line seperately and not as part of a block of code !!!
+### Define user credentials and connection details. !!! Run this line separately and not as part of a block of code !!!
 get_credentials()
 
 ### Connect to GIFT-DB
