@@ -327,7 +327,13 @@ plot_geoentities = function(geoentities, entity_properties = NULL, display = c("
   geoentities <- geoentities[which(geoentities@data$entity_ID %in% unique(entity_properties$entity_ID)),] # polygons to plot
   geoentities@data <- join(geoentities@data,entity_properties, by="entity_ID", type="inner")
   
-  if(suit_geo){ geoentities <- geoentities[which(geoentities$suit_geo == 1),]}
+  if(suit_geo){ # suit_geo
+    if(grepl("_rst",floristic_subset[1])){
+      geoentities <- geoentities[which(geoentities$suit_geo_rst == 1),]
+    } else {
+      geoentities <- geoentities[which(geoentities$suit_geo == 1),]
+    }
+  }
   
   # remove overlapping entities
   if(remove_overlapping) {
