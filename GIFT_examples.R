@@ -111,7 +111,6 @@ load(file = paste(wd_path,"Geodata/geoentities_simple.RDATA",sep=""))
 # Project it
 geoentities_simple <- spTransform(geoentities_simple, CRS("+proj=eck4"))
 
-
 # Plot all entities with data for native vascular plants (default)
 windows(width = 12, height = 8)
 plot_geoentities(geoentities_simple, display = c("none","richness","trait_coverage","env_raster","env_misc"),tax_group = "Tracheophyta",
@@ -124,7 +123,7 @@ plot_geoentities(geoentities_simple, display = c("none","richness","trait_covera
 
 ### Plot species richness of native angiosperms
 plot_geoentities(geoentities_simple, display = "richness", tax_group = "Angiospermae", floristic_subset = "native_rst",
-                 logvar=TRUE, suit_geo = FALSE, remove_overlapping = FALSE, threshold_area = 25000, proj4string = as.character(geoentities_simple@proj4string),
+                 logvar=TRUE, suit_geo = TRUE, remove_overlapping = FALSE, threshold_area = 25000, proj4string = as.character(geoentities_simple@proj4string),
                  color_gradient = c("midnightblue","dodgerblue2","chartreuse4","gold","orangered1","darkred"), make_layout = TRUE, orderbyvalue_points = TRUE,
                  args_par = list(mar=c(0,0,2,0)), args_title = list(line=0, main="Species richness native Angiosperms"), args_poly = list(border = "grey", lwd=0.3),
                  args_points = list(cex=1), args_points_0 = list(cex=0.8, col = "grey"),
@@ -134,7 +133,7 @@ plot_geoentities(geoentities_simple, display = "richness", tax_group = "Angiospe
 ### Plot trait coverage
 plot_geoentities(geoentities_simple, display = "trait_coverage",tax_group = "Tracheophyta", floristic_subset = "native_rst",
                  trait_ID = "1.2.1", suit_geo = FALSE, remove_overlapping = FALSE, threshold_area = 25000, proj4string = as.character(geoentities_simple@proj4string),
-                 color_gradient = c("red3","yellow","darkgreen"), make_layout = TRUE, orderbyvalue_points = TRUE,
+                 color_gradient = c("red","yellow","green","blue"), make_layout = TRUE, orderbyvalue_points = TRUE,
                  args_par = list(mar=c(0,0,2,0)), args_title = list(line=0, main="Growth form (tree, shrub, herb)"), args_poly = list(border = "grey", lwd=0.3),
                  args_points = list(cex=1), args_points_0 = list(cex=0.8, col = "grey"),
                  args_legend_par = list(mar = c(4.5,10,0,10), mgp = c(2.5, 0.5, 0)), args_legend = list())
